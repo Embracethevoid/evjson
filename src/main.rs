@@ -1,15 +1,7 @@
-// pub fn parse(str: String) -> evObject {}
-use std::time::{Duration, Instant};
-// use std::old_io::Timer;
-// use std::old_io::timer;
-// use std::time::duration::Duration;
-use std::iter;
-use std::sync::mpsc;
-
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 mod evjson;
-// extern crate test;
+
 fn main() {
     // let a = Number::Float(1.2);
     // let b = String::from("我是你爸爸");
@@ -39,9 +31,12 @@ fn main() {
     let mut success = 0;
     let mut failure = 0;
     for _i in 0..100000 {
-        match evjson::parse("{\"a\":{\"b\":{\"c\":1},\"x\":[\"y\",{\"z\":-1}]}".to_string()) {
+        match evjson::parse("                      \n\n\n\n\n\n\n\n\n\n\n{\"a\":{\"b\":{\"c\":1},\"x\":[\"y\",{\"z\":-1}]}}".to_string()) {
             // JSON::parse("{\"a\":{\"b\":[{\"c\":{}}]}}".to_string());
-            Ok(_json) => {success += 1 } //println!("{:?}", _json),
+            Ok(_json) => {
+                success += 1 ;
+            // println!("{}",evjson::stringify_value(&_json,2,0));
+            } //println!("{:?}", _json),
             Err(_e) => (failure += 1),   //println!("{:?}", e),
         }
     }
@@ -56,4 +51,7 @@ fn main() {
         "have {} cases succeeded , {} cases failed",
         success, failure
     );
+
+    let cs: Vec<char> = "我是你爸爸".chars().collect();
+    print!("{:?}", cs[2]);
 }

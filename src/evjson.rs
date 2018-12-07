@@ -1,5 +1,6 @@
+#[allow(dead_code)]
 use std::collections::HashMap;
-use std::ops::{Index, IndexMut};
+// use std::ops::{Index, IndexMut};
 #[derive(Debug)]
 pub enum Number {
     Integer(i64),
@@ -7,17 +8,21 @@ pub enum Number {
 }
 #[derive(Debug)]
 pub enum EVValue {
-    _object(Box<EVObject>),
-    _array(Vec<EVValue>),
-    _string(String),
-    _number(Number),
-    _boolean(bool),
-    _null,
+    Object(EVObject),
+    Array(Vec<EVValue>),
+    Str(String),
+    Number(Number),
+    Boolean(bool),
+    Null,
 }
-pub type EVObject = HashMap<String, EVValue>;
+
+// pub struct EVObject {
+//     data:HashMap
+// }
+pub type EVObject = HashMap<String, Box<EVValue>>;
 
 pub fn new() -> EVObject {
-    let data: HashMap<String, EVValue> = HashMap::new();
+    let data: HashMap<String, Box<EVValue>> = HashMap::new();
     data
 }
 
@@ -55,7 +60,7 @@ fn stringify_object(object: &EVObject, space: u8, current_space: u8) -> String {
         spaces_end
     );
 }
-fn stringify_value(value: &EVValue, space: u8, current_space: u8) -> String {
+pub fn stringify_value(value: &EVValue, space: u8, current_space: u8) -> String {
     let spaces: String = if space == 0 {
         String::from(" ".repeat(current_space as usize))
     } else {
@@ -67,12 +72,12 @@ fn stringify_value(value: &EVValue, space: u8, current_space: u8) -> String {
         format!("\n{}", " ".repeat(current_space as usize))
     };
     match value {
-        EVValue::_string(s) => format!("\"{}\"", s.as_str()),
-        EVValue::_number(n) => match n {
+        EVValue::Str(s) => format!("\"{}\"", s.as_str()),
+        EVValue::Number(n) => match n {
             Number::Integer(i) => format!("{}", i),
             Number::Float(f) => format!("{}", f),
         },
-        EVValue::_array(a) => {
+        EVValue::Array(a) => {
             let mut tmp = Vec::new();
             for v in a {
                 tmp.push(stringify_value(v, space, current_space + space))
@@ -84,13 +89,13 @@ fn stringify_value(value: &EVValue, space: u8, current_space: u8) -> String {
                 spaces_end
             )
         }
-        EVValue::_object(o) => stringify_object(o, space, current_space),
-        EVValue::_boolean(b) => if *b {
+        EVValue::Object(o) => stringify_object(o, space, current_space),
+        EVValue::Boolean(b) => if *b {
             String::from("true")
         } else {
             String::from("false")
         },
-        EVValue::_null => String::from("null"),
+        EVValue::Null => String::from("null"),
     }
 }
 fn parse_key(index: usize, chars: &Vec<char>) -> Result<(usize, String), String> {
@@ -127,7 +132,7 @@ fn parse_array(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), Stri
                     match c {
                         ' ' | '\n' | '\t' => _index += 1,
                         ',' if !_list.is_empty() => break,
-                        ']' => return Ok((_index + 1, EVValue::_array(_list))),
+                        ']' => return Ok((_index + 1, EVValue::Array(_list))),
                         _ => {
                             let (_ind, _value) = parse_value(_index, chars)?;
                             _index = _ind;
@@ -191,7 +196,7 @@ fn parse_object(index: usize, chars: &Vec<char>) -> Result<(usize, EVObject), St
                         }
                         _ => {
                             let (_ind, _key, _value) = parse_pair(_index, chars)?;
-                            object.insert(_key, _value);
+                            object.insert(_key, Box::new(_value));
                             _index = _ind;
                         }
                     }
@@ -256,7 +261,7 @@ fn parse_boolean(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), St
     match c {
         't' => {
             if index + 4 <= chars.len() && chars[index..index + 4] == ['t', 'r', 'u', 'e'] {
-                return Ok((index + 4, EVValue::_boolean(true)));
+                return Ok((index + 4, EVValue::Boolean(true)));
             } else {
                 return Err(format!(
                     "Invalid Syntax of charactor {},at position {}.",
@@ -266,7 +271,7 @@ fn parse_boolean(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), St
         }
         'f' => {
             if index + 5 <= chars.len() && chars[index..index + 5] == ['f', 'a', 'l', 's', 'e'] {
-                return Ok((index + 5, EVValue::_boolean(false)));
+                return Ok((index + 5, EVValue::Boolean(false)));
             } else {
                 return Err(format!(
                     "Invalid Syntax of charactor {},at position {}.",
@@ -284,7 +289,7 @@ fn parse_boolean(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), St
 }
 fn parse_null(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), String> {
     if index + 4 <= chars.len() && chars[index..index + 4] == ['n', 'u', 'l', 'l'] {
-        return Ok((index + 4, EVValue::_boolean(true)));
+        return Ok((index + 4, EVValue::Boolean(true)));
     } else {
         return Err(format!(
             "Invalid Syntax of charactor {},at position {}.",
@@ -302,18 +307,18 @@ fn parse_value(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), Stri
                 ' ' | '\t' | '\n' => (),
                 '\"' => {
                     let (_ind, _str) = parse_string(_index + 1, chars)?;
-                    return Ok((_ind, EVValue::_string(_str)));
+                    return Ok((_ind, EVValue::Str(_str)));
                 }
-                '[' => return parse_array(_index + 1, chars), //parse_array(chars),
+                '[' => return parse_array(_index + 1, chars), //parseArray(chars),
                 '{' => {
                     let (_ind, _object) = parse_object(_index + 1, chars)?;
-                    return Ok((_ind, EVValue::_object(Box::new(_object))));
+                    return Ok((_ind, EVValue::Object(_object)));
                 } //parse_object
                 't' | 'f' => return parse_boolean(_index, chars),
                 'n' => return parse_null(_index, chars), //parse bool and null
                 '0'...'9' | '-' => {
                     let (_ind, _num) = parse_number(_index, chars)?;
-                    return Ok((_ind, EVValue::_number(_num)));
+                    return Ok((_ind, EVValue::Number(_num)));
                 }
                 _ => {
                     return Err(format!(
@@ -352,7 +357,7 @@ pub fn parse(_input: String) -> Result<EVValue, String> {
     loop {
         if _index < chars.len() {
             let (_ind, _value) = parse_value(_index, &chars)?;
-            if (_ind >= chars.len()) {
+            if _ind >= chars.len() {
                 return Ok(_value);
             }
             result = Some(_value);
