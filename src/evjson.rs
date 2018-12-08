@@ -1,12 +1,11 @@
-#[allow(dead_code)]
 use std::collections::HashMap;
 // use std::ops::{Index, IndexMut};
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Number {
     Integer(i64),
     Float(f64),
 }
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EVValue {
     Object(EVObject),
     Array(Vec<EVValue>),
@@ -210,7 +209,7 @@ fn parse_object(index: usize, chars: &Vec<char>) -> Result<(usize, EVObject), St
         _index += 1;
     }
 }
-fn parse_number(_index: usize, chars: &Vec<char>) -> Result<(usize, Number), String> {
+fn parse_number(_index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), String> {
     let mut index = _index;
     let mut dot = false;
     let mut num = String::from("");
@@ -228,13 +227,13 @@ fn parse_number(_index: usize, chars: &Vec<char>) -> Result<(usize, Number), Str
                 _ => {
                     if dot {
                         match num.parse::<f64>() {
-                            Ok(_f) => return Ok((index, Number::Float(_f))),
-                            _ => return Err("failed to parse".to_string()),
+                            Ok(_f) => return Ok((index, EVValue::Number(Number::Float(_f)))),
+                            _ => return Err("failed to parse number".to_string()),
                         }
                     } else {
                         match num.parse::<i64>() {
-                            Ok(_i) => return Ok((index, Number::Integer(_i))),
-                            _ => return Err("failed to parse".to_string()),
+                            Ok(_i) => return Ok((index, EVValue::Number(Number::Integer(_i)))),
+                            _ => return Err("failed to parse number".to_string()),
                         }
                     }
                 }
@@ -242,13 +241,13 @@ fn parse_number(_index: usize, chars: &Vec<char>) -> Result<(usize, Number), Str
         } else {
             if dot {
                 match num.parse::<f64>() {
-                    Ok(_f) => return Ok((index, Number::Float(_f))),
-                    _ => return Err("failed to parse".to_string()),
+                    Ok(_f) => return Ok((index, EVValue::Number(Number::Float(_f)))),
+                    _ => return Err("failed to parse number".to_string()),
                 }
             } else {
                 match num.parse::<i64>() {
-                    Ok(_i) => return Ok((index, Number::Integer(_i))),
-                    _ => return Err("failed to parse".to_string()),
+                    Ok(_i) => return Ok((index, EVValue::Number(Number::Integer(_i)))),
+                    _ => return Err("failed to parse number".to_string()),
                 }
             }
         }
@@ -289,7 +288,7 @@ fn parse_boolean(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), St
 }
 fn parse_null(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), String> {
     if index + 4 <= chars.len() && chars[index..index + 4] == ['n', 'u', 'l', 'l'] {
-        return Ok((index + 4, EVValue::Boolean(true)));
+        return Ok((index + 4, EVValue::Null));
     } else {
         return Err(format!(
             "Invalid Syntax of charactor {},at position {}.",
@@ -297,7 +296,6 @@ fn parse_null(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), Strin
         ));
     }
 }
-/* */
 fn parse_value(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), String> {
     let mut _index: usize = index;
     loop {
@@ -318,7 +316,7 @@ fn parse_value(index: usize, chars: &Vec<char>) -> Result<(usize, EVValue), Stri
                 'n' => return parse_null(_index, chars), //parse bool and null
                 '0'...'9' | '-' => {
                     let (_ind, _num) = parse_number(_index, chars)?;
-                    return Ok((_ind, EVValue::Number(_num)));
+                    return Ok((_ind, _num));
                 }
                 _ => {
                     return Err(format!(
@@ -378,5 +376,187 @@ pub fn parse(_input: String) -> Result<EVValue, String> {
                 _ => return Err("failed to parse".to_string()),
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    /* parse string */
+    #[test]
+    fn it_parses_string_from_begining() {
+        assert_eq!(
+            Ok((5 as usize, "fire".to_string())),
+            parse_string(0, &vec!['f', 'i', 'r', 'e', '\"', '\"'])
+        )
+    }
+
+    #[test]
+    fn it_returns_err_if_string_does_not_end() {
+        assert_eq!(
+            Err("Invalid JSON end".to_string()),
+            parse_string(0, &vec!['f', 'i', 'r', 'e'])
+        )
+    }
+
+    /* parse number */
+    #[test]
+    fn it_parses_a_float() {
+        assert_eq!(
+            Ok((3 as usize, EVValue::Number(Number::Float(1.2)))),
+            parse_number(0, &vec!['1', '.', '2', ' '])
+        )
+    }
+
+    #[test]
+    fn it_parses_a_integer() {
+        assert_eq!(
+            Ok((2 as usize, EVValue::Number(Number::Integer(12)))),
+            parse_number(0, &vec!['1', '2', ' '])
+        )
+    }
+
+    #[test]
+    fn it_parses_a_negative_float() {
+        assert_eq!(
+            Ok((4 as usize, EVValue::Number(Number::Float(-1.2)))),
+            parse_number(0, &vec!['-', '1', '.', '2', ']'])
+        )
+    }
+
+    #[test]
+    fn it_parses_a_negative_integer() {
+        assert_eq!(
+            Ok((3 as usize, EVValue::Number(Number::Integer(-12)))),
+            parse_number(0, &vec!['-', '1', '2', ']'])
+        )
+    }
+
+    #[test]
+    fn it_returns_an_err_if_only_have_negative_symbol() {
+        assert_eq!(
+            Err("failed to parse number".to_string()),
+            parse_number(0, &vec!['-', ']'])
+        )
+    }
+
+    /* parse boolean */
+    #[test]
+    fn it_parses_a_true() {
+        assert_eq!(
+            Ok((6 as usize, EVValue::Boolean(true))),
+            parse_boolean(2, &vec![' ', ':', 't', 'r', 'u', 'e'])
+        )
+    }
+
+    #[test]
+    fn it_parses_a_false() {
+        assert_eq!(
+            Ok((7 as usize, EVValue::Boolean(false))),
+            parse_boolean(2, &vec![' ', ':', 'f', 'a', 'l', 's', 'e'])
+        )
+    }
+
+    #[test]
+    fn it_returns_error_when_parsing_part_of_true() {
+        assert_eq!(
+            Err(format!(
+                "Invalid Syntax of charactor {},at position {}.",
+                't', 2
+            )),
+            parse_boolean(2, &vec![' ', ':', 't', 'r', 'u'])
+        )
+    }
+
+    #[test]
+    fn it_returns_error_when_parsing_part_of_false() {
+        assert_eq!(
+            Err(format!(
+                "Invalid Syntax of charactor {},at position {}.",
+                'f', 2
+            )),
+            parse_boolean(2, &vec![' ', ':', 'f', 'r', 'u'])
+        )
+    }
+
+    /* parsing null */
+    #[test]
+    fn it_parses_a_null() {
+        assert_eq!(
+            Ok((6 as usize, EVValue::Null)),
+            parse_null(2, &vec![' ', ':', 'n', 'u', 'l', 'l'])
+        )
+    }
+
+    #[test]
+    fn it_returns_error_when_parsing_part_of_null() {
+        assert_eq!(
+            Err(format!(
+                "Invalid Syntax of charactor {},at position {}.",
+                'n', 2
+            )),
+            parse_null(2, &vec![' ', ':', 'n'])
+        )
+    }
+
+    /* parsing array */
+    #[test]
+    fn it_parses_an_empty_array() {
+        assert_eq!(
+            Ok((6 as usize, EVValue::Array(vec![]))),
+            parse_array(2, &vec![' ', ' ', ' ', ' ', ' ', ']'])
+        )
+    }
+
+    #[test]
+    fn it_parses_an_array_with_a_string() {
+        assert_eq!(
+            Ok((
+                6 as usize,
+                EVValue::Array(vec![EVValue::Str("a".to_string())])
+            )),
+            parse_array(0, &vec![' ', '\"', 'a', '\"', ' ', ']'])
+        )
+    }
+
+    #[test]
+    fn it_parses_an_array_with_two_strings() {
+        assert_eq!(
+            Ok((
+                11 as usize,
+                EVValue::Array(vec![
+                    EVValue::Str("a".to_string()),
+                    EVValue::Str("a".to_string())
+                ])
+            )),
+            parse_array(
+                0,
+                &vec![' ', '\"', 'a', '\"', ',', ' ', '\"', 'a', '\"', ',', ']']
+            )
+        )
+    }
+    /* parse key */
+    #[test]
+    fn it_parses_a_key() {
+        assert_eq!(
+            Ok((4 as usize, "a".to_string())),
+            parse_key(0, &vec![' ', '\"', 'a', '\"'])
+        )
+    }
+
+    #[test]
+    fn it_returns_error_for_part_of_key() {
+        assert_eq!(
+            Err("Invalid JSON end".to_string()),
+            parse_key(0, &vec![' ', '\"'])
+        )
+    }
+
+    #[test]
+    fn it_returns_error_for_invalid_charactor() {
+        assert_eq!(
+            Err("Invalid Syntax of charactor a,at position 1.".to_string()),
+            parse_key(0, &vec![' ', 'a'])
+        )
     }
 }

@@ -30,8 +30,8 @@ fn main() {
     // let start = SystemTime::now();
     let mut success = 0;
     let mut failure = 0;
-    for _i in 0..100000 {
-        match evjson::parse("                      \n\n\n\n\n\n\n\n\n\n\n{\"a\":{\"b\":{\"c\":1},\"x\":[\"y\",{\"z\":-1}]}}".to_string()) {
+    // for _i in 0..100000 {
+    match evjson::parse("[[true]".to_string()) {
             // JSON::parse("{\"a\":{\"b\":[{\"c\":{}}]}}".to_string());
             Ok(_json) => {
                 success += 1 ;
@@ -39,7 +39,7 @@ fn main() {
             } //println!("{:?}", _json),
             Err(_e) => (failure += 1),   //println!("{:?}", e),
         }
-    }
+    // }
     let new_now = Instant::now();
     println!("{:?}", new_now.duration_since(now));
     // println!("Wait {} ms...", interval.num_milliseconds());
